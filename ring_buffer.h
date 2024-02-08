@@ -21,7 +21,7 @@
 void set_sample_pin(uint8_t pin);
 
 // Callback for ISR or polling to add samples to buffer
-bool ICACHE_RAM_ATTR sample_input(void * timerNo);
+void ICACHE_RAM_ATTR sample_input();
 
 // How many samples are in buffer
 size_t num_samples();

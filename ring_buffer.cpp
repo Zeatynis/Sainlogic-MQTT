@@ -9,7 +9,7 @@ void set_sample_pin(uint8_t pin) {
   sample_pin = pin;
 }
 
-bool ICACHE_RAM_ATTR sample_input(void * timerNo)
+void ICACHE_RAM_ATTR sample_input()
 {
   #ifdef DEBUG_SAMPLER
   // Stop at SAMPLE_LEN - 1 since num_samples wraps around
@@ -21,7 +21,6 @@ bool ICACHE_RAM_ATTR sample_input(void * timerNo)
   int byte_idx = samples_head / 8;
   bitWrite(samples[byte_idx], bit_idx, digitalRead(sample_pin));
   samples_head = (samples_head + 1) % SAMPLE_LEN;
-  return true;
 }
 
 size_t num_samples() {

@@ -1,6 +1,27 @@
 #include "data_decode.h"
 #include "ppm_tracker.h"
 
+//https://github.com/RFD-FHEM/RFFHEM/blob/master/FHEM/14_SD_WS.pm
+// Sainlogic weather station FT-0835
+// ---------------------------------------------------------------
+//          Byte: 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 
+//        Nibble: 01 23 45 67 89 01 23 45 67 89 01 23 45 67 89 01 
+// aa aa aa 2d d4 FF D4 C0 E4 00 00 5F 00 00 83 FD 51 FF FB FB 6B
+//                PP PP PI IF SS GG DD RR RR FT TT HH BB BB UU CC
+// P: 20 bit Preamble always 0xFFD4C
+// I:  8 bit Ident
+// F:  4 bit Flags: battery, MSB wind direction, MSB wind gust, MSB wind speed
+// S:  8 bit LSB wind speed, in 1/10 m/s, resolution 0.1
+// G:  8 bit LSB wind gust, in 1/10 m/s, resolution 0.1
+// D:  8 bit LSB wind direction, in degree
+// R: 16 bit rain counter, in 1/10 l/m², resolution 0.1
+// F:  4 bit Flags: Sensors with brightness MSB brightness, 3 bit unknown, sensors without brightness always 0x8
+// I: 12 bit Temperature, unsigned fahrenheit, offset by 400 and scaled by 10
+// D:  8 bit Humidity, in percent
+// R: 16 bit Brightness, sensors without brightness always 0xFFFB
+// U:  8 bit UV, sensors without brightness always 0xFB
+// C:  8 bit CRC8 over all 16 bytes must be 0
+
 // Taken from https://reveng.sourceforge.io/crc-catalogue/1-15.htm#crc.cat.crc-8-nrsc-5
 uint8_t CRC8_TAB[] = {
     0, 0x31, 0x62, 0x53, 0xC4, 0xF5, 0xA6, 0x97, 0xB9,
@@ -74,7 +95,7 @@ float get_gust_wind_speed(const uint8_t *msg) {
 
 // Get rain measurement in mm
 float get_rain(const uint8_t *msg) {
-    return float(msg[7] * 256 + msg[8]) / 10.;
+    return float(msg[7] * 256 + msg[8] - 25590) / 10.;
 }
 
 // Get humidity in %

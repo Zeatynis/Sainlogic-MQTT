@@ -1,7 +1,7 @@
 #include <Arduino.h>
-#include <WiFi.h>
+#include <ESP8266WiFi.h>
 
-#include "ESP32TimerInterrupt.h"
+#include <ESP8266TimerInterrupt.h>
 #include <PubSubClient.h>
 
 #include "ring_buffer.h"
@@ -35,8 +35,8 @@ const char* mqtt_server = "192.168.1.157";
 WiFiClient wifi_client;
 PubSubClient client(wifi_client);
 
-// Init ESP32 timer
-ESP32Timer ITimer(0);
+// Init ESP8266 timer
+ESP8266Timer ITimer;
 
 BinaryPpmTracker tracker(MIN_SAMPLES, MAX_SAMPLES);
 
@@ -68,6 +68,7 @@ void setup_wifi() {
 
 // Don't listen for any MQTT topics
 void callback(char* topic, byte* payload, unsigned int length) {
+
 }
 
 // Reconnect to MQTT Broker
@@ -76,7 +77,7 @@ void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...1");
     // Create a random client ID
-    String clientId = "ESP32Client-";
+    String clientId = "ESP8266Client-";
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
     if (client.connect(clientId.c_str())) {
@@ -100,24 +101,15 @@ void setup() {
   Serial.begin(115200);
 
   setup_wifi();
-  Serial.println("Wi-Fi done");
   client.setServer(mqtt_server, 1883);
-  Serial.println("MQTT server done");
   client.setCallback(callback);
-  Serial.println("callback done");
   //client.setSocketTimeout(0xFFFF);
   client.setKeepAlive(0xFFFF);
-  Serial.println("keep alive done");
 
-  if (ITimer.attachInterruptInterval(SAMPLE_PERIOD_US, sample_input)) {
-    Serial.println("if1");
+  if (ITimer.attachInterruptInterval(SAMPLE_PERIOD_US, sample_input))
     Serial.println("Starting  ITimer OK, millis() = " + String(millis()));
-    Serial.println("if1");
-  } else {
-    Serial.println("else");
+  else
     Serial.println("Can't set ITimer. Select another freq. or interval");
-    Serial.println("else");
-  }
 }
 
 #ifdef DEBUG_SAMPLER
@@ -138,7 +130,7 @@ void debug_loop() {
   size_t buffered_len = num_samples();
   if (buffered_len == SAMPLE_LEN - 1) {
     sent = true;
-    for (int i = 0; i < SAMPLE_LEN / 8; i++) {
+    for (int i = 0; i < SAMPLE_LEN/8; i++){
       Serial.printf("%02X", get_sample_buffer()[i]);
     }
     Serial.print("\n");
@@ -147,10 +139,10 @@ void debug_loop() {
 }
 #endif
 
-void decode_and_publish(const uint8_t* msg) {
+void decode_and_publish(const uint8_t *msg) {
   if (check_crc(tracker.get_msg())) {
     String json_data = "{";
-    json_data += String("\"temp_c\": ") + String(get_temperature(msg)) + ", ";
+    json_data += String("\"temp_f\": ") + String(get_temperature(msg)) + ", ";
     json_data += String("\"humidity_%\": ") + String(get_humidity(msg)) + ", ";
     json_data += String("\"wind_dir_deg\": ") + String(get_direction(msg)) + ", ";
     json_data += String("\"avr_wind_m/s\": ") + String(get_avr_wind_speed(msg)) + ", ";
@@ -165,9 +157,9 @@ void decode_and_publish(const uint8_t* msg) {
 }
 
 void loop() {
-#ifdef DEBUG_SAMPLER
+  #ifdef DEBUG_SAMPLER
   debug_loop();
-#else
+  #else
   size_t buffered_len = num_samples();
   if (buffered_len > SAMPLE_LEN / 2) {
     Serial.printf("Fell Behind\n");
@@ -187,7 +179,7 @@ void loop() {
 
     // If full message is received publish it and reset tracker
     if (tracker.cur_rx_len() == MSG_LEN) {
-      for (int i = 0; i < MSG_BYTES; i++) {
+      for (int i = 0; i < MSG_BYTES; i++){
         Serial.printf("%02X", tracker.get_msg()[i]);
       }
       Serial.print("\n");
@@ -203,5 +195,5 @@ void loop() {
     }
   }
   delayMicroseconds(SAMPLE_PERIOD_US * 10);
-#endif
+  #endif
 }
