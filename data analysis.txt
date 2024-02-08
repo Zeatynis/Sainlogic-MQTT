@@ -66,3 +66,11 @@ Meaning:    PP PP PI IF SS GG DD RR RR FT TT HH BB BB UU CC
             FF D4 C3 30 04 07 58 64 68 82 EC 5D FF FB FB B5 - 11.4 mm
             FF D4 C3 30 05 07 33 64 80 82 EB 5D FF FB FB 66 - 13.8 mm
             FF D4 C3 30 03 07 57 64 95 82 EB 5D FF FB FB B8 - 15.9 mm
+            FF D4 C3 30 01 03 7D 64 B0 82 EA 5D FF FB FB FD - 18.3 mm
+            FF D4 C3 30 01 03 59 64 B3 82 EA 5D FF FB FB 04 - 18.6 mm
+            FF D4 C3 30 04 07 4D 64 B9 82 EA 5D FF FB FB 00 - 19.2 mm
+            FF D4 C3 30 01 03 60 64 BC 82 EA 5D FF FB FB 31 - 19.5 mm
+            FF D4 C3 30 01 03 72 64 BF 82 EB 5D FF FB FB 09 - 19.8 mm
+            FF D4 C3 30 05 07 40 64 C2 82 EA 5D FF FB FB 93 - 20.1 mm
+            FF D4 C3 34 01 03 18 64 E6 82 EA 5E FF FB FB C5 - 23.7 mm
+            FF D4 C3 30 01 03 36 64 E9 82 E9 5E FF FB FB FB - 24.0 mm
