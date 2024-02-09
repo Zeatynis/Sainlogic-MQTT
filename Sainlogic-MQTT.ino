@@ -18,7 +18,7 @@ time_t now;  // this are the seconds since Epoch (1970) - UTC
 tm tm;       // the structure tm holds time information in a more convenient way
 
 int saved_day;
-int saved_minute;
+bool hour_reset = false;
 
 float rain_start_1h;
 float rain_start_24h;
@@ -56,12 +56,12 @@ ESP8266Timer ITimer;
 
 BinaryPpmTracker tracker(MIN_SAMPLES, MAX_SAMPLES);
 
-uint32_t sntp_startup_delay_MS_rfc_not_less_than_60000 () {
-  return 10000UL; // 10s
+uint32_t sntp_startup_delay_MS_rfc_not_less_than_60000() {
+  return 10000UL;  // 10s
 }
 
-uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 () {
-  return 60 * 1000UL; // 1 minute
+uint32_t sntp_update_delay_MS_rfc_not_less_than_15000() {
+  return 60 * 1000UL;  // 1 minute
 }
 // setup WiFi based on ssid and password
 // defined in gitignored secrets.h
@@ -126,15 +126,13 @@ void setup() {
 
   configTime(TIMEZONE, NTP_SERVER);
   Serial.println("Waiting for NTP data to be pulled");
-  delay(15000); // for NTP to pull the data
+  delay(15000);  // for NTP to pull the data
   time(&now);
   localtime_r(&now, &tm);
 
   saved_day = tm.tm_yday;
-  saved_minute = tm.tm_min;
 
   Serial.printf("Saved day: %u\n", saved_day);
-  Serial.printf("Saved minute: %u\n", saved_minute);
 
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
@@ -151,14 +149,23 @@ Struct calculate_rain(float rain_measure) {
   time(&now);
   localtime_r(&now, &tm);
   Struct rain;
+
+  Serial.printf("tm.tm_yday: %u\n", tm.tm_yday);
+  Serial.printf("tm.tm_min: %u\n", tm.tm_min);
+
   if (tm.tm_yday == 0 && saved_day > 0 || tm.tm_yday > saved_day) {
     // reset 24h rain every 24h
+    saved_day = tm.tm_yday;
     rain_start_24h = rain_measure;
   }
-  if (tm.tm_min < saved_minute) {
+  if (tm.tm_min == 0 && hour_reset == false) {
     // reset 1h rain every hour
     rain_start_1h = rain_measure;
+    hour_reset = true;
   }
+   // block reseting more than once in first minute
+  if (tm.tm_min > 0 && hour_reset == true)
+    hour_reset = false;
 
   if (rain_measure < rain_start_24h) {
     // handle overflow on 24h rain counter
