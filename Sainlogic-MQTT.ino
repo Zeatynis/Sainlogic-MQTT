@@ -46,7 +46,7 @@ typedef struct rain Struct;
 #define MAX_SAMPLES 16
 
 // MQTT Broker to connect to
-const char* mqtt_server = "192.168.1.157";
+const char* mqtt_server = "broker.hivemq.com";
 
 WiFiClient wifi_client;
 PubSubClient client(wifi_client);
@@ -99,7 +99,7 @@ void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...1");
     // Create a random client ID
-    String clientId = "ESP8266Client-";
+    String clientId = "ZeatynisESP8266-";
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
     if (client.connect(clientId.c_str())) {
@@ -125,6 +125,7 @@ void setup() {
   setup_wifi();
 
   configTime(TIMEZONE, NTP_SERVER);
+  Serial.println("Waiting for NTP data to be pulled");
   delay(15000); // for NTP to pull the data
   time(&now);
   localtime_r(&now, &tm);
@@ -188,7 +189,7 @@ void decode_and_publish(const uint8_t* msg) {
     json_data += "}";
     Serial.print(json_data);
     Serial.print('\n');
-    client.publish("weather_decoded", json_data.c_str(), json_data.length());
+    client.publish("Zeatynis_weather_decoded", json_data.c_str(), json_data.length());
   } else
     Serial.print("CRC check failed\n");
 }
@@ -224,7 +225,7 @@ void loop() {
       if (!client.connected()) {
         reconnect();
       }
-      client.publish("weather_data", tracker.get_msg(), MSG_BYTES);
+      client.publish("Zeatynis_weather_data", tracker.get_msg(), MSG_BYTES);
       decode_and_publish(tracker.get_msg());
       client.loop();
       reset_sampler();
