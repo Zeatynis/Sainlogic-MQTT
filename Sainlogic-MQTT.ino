@@ -9,9 +9,25 @@
 #include "data_decode.h"
 #include "secrets.h"
 
-// Define DEBUG_SAMPLER to log data packets to serial
-// Instead of normal operation
+#include <time.h>
 
+#define NTP_SERVER "pl.pool.ntp.org"
+#define TIMEZONE "CET-1CEST,M3.5.0,M10.5.0/3"
+
+time_t now;  // this are the seconds since Epoch (1970) - UTC
+tm tm;       // the structure tm holds time information in a more convenient way
+
+int saved_day;
+int saved_minute;
+
+float rain_start_1h;
+float rain_start_24h;
+
+struct rain {
+  float rain_1h;
+  float rain_24h;
+};
+typedef struct rain Struct;
 
 // D1 GPIO5
 // Connects to pin that goes low during receive
@@ -40,6 +56,13 @@ ESP8266Timer ITimer;
 
 BinaryPpmTracker tracker(MIN_SAMPLES, MAX_SAMPLES);
 
+uint32_t sntp_startup_delay_MS_rfc_not_less_than_60000 () {
+  return 10000UL; // 10s
+}
+
+uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 () {
+  return 60 * 1000UL; // 1 minute
+}
 // setup WiFi based on ssid and password
 // defined in gitignored secrets.h
 void setup_wifi() {
@@ -68,7 +91,6 @@ void setup_wifi() {
 
 // Don't listen for any MQTT topics
 void callback(char* topic, byte* payload, unsigned int length) {
-
 }
 
 // Reconnect to MQTT Broker
@@ -101,6 +123,18 @@ void setup() {
   Serial.begin(115200);
 
   setup_wifi();
+
+  configTime(TIMEZONE, NTP_SERVER);
+  delay(15000); // for NTP to pull the data
+  time(&now);
+  localtime_r(&now, &tm);
+
+  saved_day = tm.tm_yday;
+  saved_minute = tm.tm_min;
+
+  Serial.printf("Saved day: %u\n", saved_day);
+  Serial.printf("Saved minute: %u\n", saved_minute);
+
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   //client.setSocketTimeout(0xFFFF);
@@ -112,54 +146,57 @@ void setup() {
     Serial.println("Can't set ITimer. Select another freq. or interval");
 }
 
-#ifdef DEBUG_SAMPLER
-/**
- * When debugging, log bit sequence following PIN_IN1 going low
- * DEBUG_SAMPLER causes sampler to capture a full buffers worth
- * after reset_sampler call. Last bit is not valid.
- */
-void debug_loop() {
-  static bool sent = true;
-  if (sent) {
-    if (!digitalRead(PIN_IN1)) {
-      reset_sampler();
-      sent = false;
-    }
-    return;
+Struct calculate_rain(float rain_measure) {
+  time(&now);
+  localtime_r(&now, &tm);
+  Struct rain;
+  if (tm.tm_yday == 0 && saved_day > 0 || tm.tm_yday > saved_day) {
+    // reset 24h rain every 24h
+    rain_start_24h = rain_measure;
   }
-  size_t buffered_len = num_samples();
-  if (buffered_len == SAMPLE_LEN - 1) {
-    sent = true;
-    for (int i = 0; i < SAMPLE_LEN/8; i++){
-      Serial.printf("%02X", get_sample_buffer()[i]);
-    }
-    Serial.print("\n");
-    reset_sampler();
+  if (tm.tm_min < saved_minute) {
+    // reset 1h rain every hour
+    rain_start_1h = rain_measure;
   }
-}
-#endif
 
-void decode_and_publish(const uint8_t *msg) {
+  if (rain_measure < rain_start_24h) {
+    // handle overflow on 24h rain counter
+    rain.rain_24h = 9999 - rain_start_24h + rain_measure;
+  } else
+    rain.rain_24h = rain_measure - rain_start_24h;
+  if (rain_measure < rain_start_1h) {
+    // handle overflow on 1h rain counter
+    rain.rain_24h = 9999 - rain_start_24h + rain_measure;
+  } else
+    rain.rain_1h = rain_measure - rain_start_1h;
+
+  return rain;
+}
+
+void decode_and_publish(const uint8_t* msg) {
   if (check_crc(tracker.get_msg())) {
+    Struct rain;
+    rain = calculate_rain(get_rain(msg));
     String json_data = "{";
-    json_data += String("\"temp_f\": ") + String(get_temperature(msg)) + ", ";
+    json_data += String("\"temp_c\": ") + String(get_temperature(msg)) + ", ";
     json_data += String("\"humidity_%\": ") + String(get_humidity(msg)) + ", ";
     json_data += String("\"wind_dir_deg\": ") + String(get_direction(msg)) + ", ";
     json_data += String("\"avr_wind_m/s\": ") + String(get_avr_wind_speed(msg)) + ", ";
     json_data += String("\"gust_wind_m/s\": ") + String(get_gust_wind_speed(msg)) + ", ";
-    json_data += String("\"rain_mm\": ") + String(get_rain(msg));
+    json_data += String("\"rain_mm_1h\": ") + String(rain.rain_1h) + ", ";
+    json_data += String("\"rain_mm_24h\": ") + String(rain.rain_24h);
     json_data += "}";
     Serial.print(json_data);
     Serial.print('\n');
     client.publish("weather_decoded", json_data.c_str(), json_data.length());
-  }
-  Serial.print("CRC check failed\n");
+  } else
+    Serial.print("CRC check failed\n");
 }
 
 void loop() {
-  #ifdef DEBUG_SAMPLER
+#ifdef DEBUG_SAMPLER
   debug_loop();
-  #else
+#else
   size_t buffered_len = num_samples();
   if (buffered_len > SAMPLE_LEN / 2) {
     Serial.printf("Fell Behind\n");
@@ -170,16 +207,16 @@ void loop() {
     // Demodulate PPM signal
     tracker.process_sample(get_next_sample());
 
-    // // Used for debugging
-    // size_t last_count = 0;
-    // if (last_count > 0 && tracker.cur_rx_len() == 0) {
-    //   Serial.printf("%lu %u\n", millis(), last_count);
-    // }
-    // last_count = tracker.cur_rx_len();
+    // Used for debugging
+    size_t last_count = 0;
+    if (last_count > 0 && tracker.cur_rx_len() == 0) {
+      Serial.printf("%lu %u\n", millis(), last_count);
+    }
+    last_count = tracker.cur_rx_len();
 
     // If full message is received publish it and reset tracker
     if (tracker.cur_rx_len() == MSG_LEN) {
-      for (int i = 0; i < MSG_BYTES; i++){
+      for (int i = 0; i < MSG_BYTES; i++) {
         Serial.printf("%02X", tracker.get_msg()[i]);
       }
       Serial.print("\n");
@@ -195,5 +232,5 @@ void loop() {
     }
   }
   delayMicroseconds(SAMPLE_PERIOD_US * 10);
-  #endif
+#endif
 }

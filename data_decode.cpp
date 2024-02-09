@@ -95,7 +95,7 @@ float get_gust_wind_speed(const uint8_t *msg) {
 
 // Get rain measurement in mm
 float get_rain(const uint8_t *msg) {
-    return float(msg[7] * 256 + msg[8] - 25590) / 10.;
+    return float(msg[7] * 256 + msg[8]) / 10.;
 }
 
 // Get humidity in %
