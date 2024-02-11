@@ -46,7 +46,7 @@ typedef struct rain Struct;
 #define MAX_SAMPLES 16
 
 // MQTT Broker to connect to
-const char* mqtt_server = "broker.hivemq.com";
+const char* mqtt_server = "192.168.1.30";
 
 WiFiClient wifi_client;
 PubSubClient client(wifi_client);
