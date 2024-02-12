@@ -232,7 +232,7 @@ void loop() {
       if (!client.connected()) {
         reconnect();
       }
-      client.publish("Zeatynis_weather_data", tracker.get_msg(), MSG_BYTES);
+      client.publish("weather_data", tracker.get_msg(), MSG_BYTES);
       decode_and_publish(tracker.get_msg());
       client.loop();
       reset_sampler();
