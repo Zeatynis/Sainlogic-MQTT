@@ -102,7 +102,7 @@ void reconnect() {
     String clientId = "ZeatynisESP8266-";
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
-    if (client.connect(clientId.c_str())) {
+    if (client.connect(clientId.c_str(), mqtt_login, mqtt_password)) {
       Serial.println("connected");
     } else {
       Serial.print("failed, rc=");
@@ -196,7 +196,7 @@ void decode_and_publish(const uint8_t* msg) {
     json_data += "}";
     Serial.print(json_data);
     Serial.print('\n');
-    client.publish("Zeatynis_weather_decoded", json_data.c_str(), json_data.length());
+    client.publish("weather_decoded", json_data.c_str(), json_data.length());
   } else
     Serial.print("CRC check failed\n");
 }
