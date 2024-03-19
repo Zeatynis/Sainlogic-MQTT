@@ -183,9 +183,12 @@ Struct calculate_rain(float rain_measure) {
 
 void decode_and_publish(const uint8_t* msg) {
   if (check_crc(tracker.get_msg())) {
+    char buffer[20x];
+    strftime(buffer, 20, "%Y-%m-%d %H:%M:%S", localtime(&now));
     Struct rain;
     rain = calculate_rain(get_rain(msg));
     String json_data = "{";
+    json_data += String("\"timestamp\": ") + String(buffer) + ", ";
     json_data += String("\"temp_c\": ") + String(get_temperature(msg)) + ", ";
     json_data += String("\"humidity_%\": ") + String(get_humidity(msg)) + ", ";
     json_data += String("\"wind_dir_deg\": ") + String(get_direction(msg)) + ", ";
